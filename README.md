@@ -17,7 +17,7 @@ Parameters of ICO Wizard used to generate the instance of token contract for the
 | Token name      | Block Array  |
 | Token Ticker    | ARY          |
 | Decimals        | 18           |
-| Reserved tokens | None         |
+| Reserved tokens | Yes          |
 
 Remarks:
 - "Reserved tokens - None" no % or fixed tokens 
@@ -30,12 +30,12 @@ Parameters of ICO Wizard used to generate the instance of crowdsale for the audi
 | Field              	| Value                      	|
 |--------------------	|---------------------------	|
 | Tiers              	| 1                         	|
-| Supply             	| 176,722,560               	|
-| Rate               	| 4241                      	|
+| Supply             	| 54,406,500                	|
+| Rate               	| 4731                      	|
 | Allow modifying    	| No                        	|
-| Disable whitelist  	| No                        	|
-| Start date         	| 1 December, 2017 9am PST  	|
-| End date           	| 15 December, 2017 3pm PST 	|
+| Disable whitelist  	| Yes                        	|
+| Start date         	| 2017-12-23T17:55 (GMT - 5)  	|
+| End date           	| 2018-01-14T18:00 (GMT - 5)	|
 
 Remarks:
 
@@ -46,7 +46,7 @@ Remarks:
 
 ## Source code and deployed contracts
 
-Source code for code audit is located in [/icowizard_Mainnet_0xa5F8fC0921880Cb7342368BD128eb8050442B1a1/](https://github.com/oraclesorg/ico-wizard-audit/icowizard_Mainnet_0xa5F8fC0921880Cb7342368BD128eb8050442B1a1) folder of the repository
+Source code for code audit is located in [/icowizard_Mainnet_0xa5F8fC0921880Cb7342368BD128eb8050442B1a1/](https://github.com/poanetwork/ico-wizard-audit/icowizard_Mainnet_0xa5F8fC0921880Cb7342368BD128eb8050442B1a1) folder of the repository
 
 ###  Files structure
 
