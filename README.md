@@ -17,11 +17,12 @@ Parameters of ICO Wizard used to generate the instance of token contract for the
 | Token name      | Block Array  |
 | Token Ticker    | ARY          |
 | Decimals        | 18           |
-| Reserved tokens | Yes          |
+| Reserved tokens | Yes*         |
+
+*34,003,500 tokens to 0xd8ec5f137d45273f60065985b6a5b766aa978855
 
 Remarks:
 - "Reserved tokens - None" no % or fixed tokens 
-- For that crowdsale created tokens will not be movable after the crowdsale. They will only indicate purchased amounts of tokens. Actual tokens will be created on the right side of the bridge on Oracles Network. 
 
 ### Crowdsale
 
@@ -32,7 +33,7 @@ Parameters of ICO Wizard used to generate the instance of crowdsale for the audi
 | Tiers              	| 1                         	|
 | Supply             	| 54,406,500                	|
 | Rate               	| 4731                      	|
-| Allow modifying    	| No                        	|
+| Allow modifying    	| Yes                        	|
 | Disable whitelist  	| Yes                        	|
 | Start date         	| 2017-12-23T17:55 (GMT - 5)  	|
 | End date           	| 2018-01-14T18:00 (GMT - 5)	|
@@ -57,11 +58,11 @@ A `.txt` file contain metadata
 
 ### Deployed contracts
 Contracts are deployed on Kovan and verified 
-- `SafeMathLibExt`. The code of verified [SafeMathLibExt is here](https://kovan.etherscan.io/address/0x4b360178A24E30eF5e526075688462f58839f35d#code).
-- `CrowdsaleTokenExt`. The token contract. The code of verified [CrowdsaleTokenExt is here](https://kovan.etherscan.io/address/0xE46DF67c7BADf7220850B65b7Cf81801c86A0753#code).
-- `FlatPricingExt`. The pricing strategy contract. The code of verified [FlatPricingExt is here](https://kovan.etherscan.io/address/0xf175eB9c6Ab88CAaD8b781Fa6c3F2E228bDE7c61#code).
-- `MintedTokenCappedCrowdsaleExt`. The crowdsale contract for a tier. The code of verified [MintedTokenCappedCrowdsaleExt is here](https://kovan.etherscan.io/address/0x88B0C54aa5155d203ec28492DC2d985dD6eCB6E6#code).
-- `NullFinalizeAgentExt`. The finalize agent contract. The example of verified [NullFinalizeAgentExt is here](https://kovan.etherscan.io/address/0xc328C8A5e9011819f92D4505e027858a60dd65Ef#code).
+- `SafeMathLibExt`. The code of verified [SafeMathLibExt is here](https://etherscan.io/address/0xcdcd0638664657Ed3B031A75e00E02e47057e226#code).
+- `CrowdsaleTokenExt`. The token contract. The code of verified [CrowdsaleTokenExt is here](https://etherscan.io/address/0xa5F8fC0921880Cb7342368BD128eb8050442B1a1#code).
+- `FlatPricingExt`. The pricing strategy contract. The code of verified [FlatPricingExt is here](https://etherscan.io/address/0x6692D5dD701b9373933730d4e4f3b498DB7F7C32#code).
+- `MintedTokenCappedCrowdsaleExt`. The crowdsale contract for a tier. The code of verified [MintedTokenCappedCrowdsaleExt is here](https://etherscan.io/address/0x3D5fb1E9d2F15D9ae5d7f4af4825FDEf03dE9685#code).
+- `NullFinalizeAgentExt`. The finalize agent contract. The example of verified [NullFinalizeAgentExt is here](https://etherscan.io/address/0x766e51c940B9656E34b91041ca8aFa00B7E9ED71#code).
 
 ## Deployment stage
 
