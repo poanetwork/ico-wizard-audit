@@ -1,3 +1,4 @@
+// Created using ICO Wizard https://github.com/poanetwork/ico-wizard by POA Network
 pragma solidity ^0.4.11;
 
 
