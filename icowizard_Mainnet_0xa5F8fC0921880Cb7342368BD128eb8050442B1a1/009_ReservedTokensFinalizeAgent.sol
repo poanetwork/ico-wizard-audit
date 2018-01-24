@@ -1,4 +1,3 @@
-// Created using ICO Wizard https://github.com/oraclesorg/ico-wizard by Oracles Network 
 pragma solidity ^0.4.11;
 
 
@@ -107,12 +106,6 @@ contract Ownable {
   }
 
 }
-/**
- * This smart contract code is Copyright 2017 TokenMarket Ltd. For more information see https://tokenmarket.net
- *
- * Licensed under the Apache License, version 2.0: https://github.com/TokenMarketNet/ico/blob/master/LICENSE.txt
- */
-
 
 
 /**
@@ -296,6 +289,8 @@ contract FinalizeAgent {
    */
   function isSane() public constant returns (bool);
 
+  function distributeReservedTokens(uint reservedTokensDistributionBatch);
+
   /** Called once by crowdsale finalize() if the sale was success. */
   function finalizeCrowdsale();
 
@@ -367,6 +362,9 @@ contract CrowdsaleExt is Haltable {
   /* Post-success callback */
   FinalizeAgent public finalizeAgent;
 
+  /* name of the crowdsale tier */
+  string public name;
+
   /* tokens will be transfered from this address */
   address public multisigWallet;
 
@@ -437,6 +435,9 @@ contract CrowdsaleExt is Haltable {
   /** Addresses that are allowed to invest even before ICO offical opens. For testing, for ICO partners, etc. */
   mapping (address => WhiteListData) public earlyParticipantWhitelist;
 
+  /** List of whitelisted addresses */
+  address[] public whitelistedParticipants;
+
   /** This is for manul testing for the interaction from owner wallet. You can set it to any value and inspect this in blockchain explorer to see that crowdsale interaction works. */
   uint public ownerTestValue;
 
@@ -470,9 +471,11 @@ contract CrowdsaleExt is Haltable {
   // Crowdsale end time has been changed
   event EndsAtChanged(uint newEndsAt);
 
-  function CrowdsaleExt(address _token, PricingStrategy _pricingStrategy, address _multisigWallet, uint _start, uint _end, uint _minimumFundingGoal, bool _isUpdatable, bool _isWhiteListed) {
+  function CrowdsaleExt(string _name, address _token, PricingStrategy _pricingStrategy, address _multisigWallet, uint _start, uint _end, uint _minimumFundingGoal, bool _isUpdatable, bool _isWhiteListed) {
 
     owner = msg.sender;
+
+    name = _name;
 
     token = FractionalERC20Ext(_token);
 
@@ -604,14 +607,14 @@ contract CrowdsaleExt is Haltable {
     if (isWhiteListed) {
       uint num = 0;
       for (var i = 0; i < joinedCrowdsalesLen; i++) {
-        if (this == joinedCrowdsales[i]) 
+        if (this == joinedCrowdsales[i])
           num = i;
       }
 
       if (num + 1 < joinedCrowdsalesLen) {
         for (var j = num + 1; j < joinedCrowdsalesLen; j++) {
           CrowdsaleExt crowdsale = CrowdsaleExt(joinedCrowdsales[j]);
-          crowdsale.updateEarlyParicipantWhitelist(msg.sender, this, tokenAmount);
+          crowdsale.updateEarlyParticipantWhitelist(msg.sender, this, tokenAmount);
         }
       }
     }
@@ -705,6 +708,18 @@ contract CrowdsaleExt is Haltable {
     invest(msg.sender);
   }
 
+  function distributeReservedTokens(uint reservedTokensDistributionBatch) public inState(State.Success) onlyOwner stopInEmergency {
+    // Already finalized
+    if(finalized) {
+      throw;
+    }
+
+    // Finalizing is optional. We only call it if we are given a finalizing agent.
+    if(address(finalizeAgent) != 0) {
+      finalizeAgent.distributeReservedTokens(reservedTokensDistributionBatch);
+    }
+  }
+
   /**
    * Finalize a succcesful crowdsale.
    *
@@ -762,23 +777,28 @@ contract CrowdsaleExt is Haltable {
 
   /**
    * Allow addresses to do early participation.
-   *
-   * TODO: Fix spelling error in the name
    */
-  function setEarlyParicipantWhitelist(address addr, bool status, uint minCap, uint maxCap) onlyOwner {
+  function setEarlyParticipantWhitelist(address addr, bool status, uint minCap, uint maxCap) onlyOwner {
     if (!isWhiteListed) throw;
-    earlyParticipantWhitelist[addr] = WhiteListData({status:status, minCap:minCap, maxCap:maxCap});
-    Whitelisted(addr, status);
-  }
+    assert(addr != address(0));
+    assert(maxCap > 0);
+    assert(minCap <= maxCap);
 
-  function setEarlyParicipantsWhitelist(address[] addrs, bool[] statuses, uint[] minCaps, uint[] maxCaps) onlyOwner {
-    if (!isWhiteListed) throw;
-    for (uint iterator = 0; iterator < addrs.length; iterator++) {
-      setEarlyParicipantWhitelist(addrs[iterator], statuses[iterator], minCaps[iterator], maxCaps[iterator]);
+    if (earlyParticipantWhitelist[addr].maxCap == 0) {
+      earlyParticipantWhitelist[addr] = WhiteListData({status:status, minCap:minCap, maxCap:maxCap});
+      whitelistedParticipants.push(addr);
+      Whitelisted(addr, status);
     }
   }
 
-  function updateEarlyParicipantWhitelist(address addr, address contractAddr, uint tokensBought) {
+  function setEarlyParticipantsWhitelist(address[] addrs, bool[] statuses, uint[] minCaps, uint[] maxCaps) onlyOwner {
+    if (!isWhiteListed) throw;
+    for (uint iterator = 0; iterator < addrs.length; iterator++) {
+      setEarlyParticipantWhitelist(addrs[iterator], statuses[iterator], minCaps[iterator], maxCaps[iterator]);
+    }
+  }
+
+  function updateEarlyParticipantWhitelist(address addr, address contractAddr, uint tokensBought) {
     if (tokensBought < earlyParticipantWhitelist[addr].minCap) throw;
     if (!isWhiteListed) throw;
     if (addr != msg.sender && contractAddr != msg.sender) throw;
@@ -859,7 +879,7 @@ contract CrowdsaleExt is Haltable {
 
     uint num = 0;
     for (var i = 0; i < joinedCrowdsalesLen; i++) {
-      if (this == joinedCrowdsales[i]) 
+      if (this == joinedCrowdsales[i])
         num = i;
     }
 
@@ -1021,6 +1041,10 @@ contract CrowdsaleExt is Haltable {
    * Create new tokens or transfer issued tokens to the investor depending on the cap model.
    */
   function assignTokens(address receiver, uint tokenAmount) private;
+
+  function whitelistedParticipantsLength() public constant returns (uint) {
+    return whitelistedParticipants.length;
+  }
 }
 
 /**
@@ -1405,34 +1429,64 @@ contract MintableTokenExt is StandardToken, Ownable {
     uint inTokens;
     uint inPercentageUnit;
     uint inPercentageDecimals;
+    bool isReserved;
+    bool isDistributed;
   }
 
   mapping (address => ReservedTokensData) public reservedTokensList;
   address[] public reservedTokensDestinations;
   uint public reservedTokensDestinationsLen = 0;
+  bool reservedTokensDestinationsAreSet = false;
 
-  function setReservedTokensList(address addr, uint inTokens, uint inPercentageUnit, uint inPercentageDecimals) onlyOwner {
-    reservedTokensDestinations.push(addr);
-    reservedTokensDestinationsLen++;
-    reservedTokensList[addr] = ReservedTokensData({inTokens:inTokens, inPercentageUnit:inPercentageUnit, inPercentageDecimals: inPercentageDecimals});
+  function setReservedTokensList(address addr, uint inTokens, uint inPercentageUnit, uint inPercentageDecimals) private canMint onlyOwner {
+    assert(addr != address(0));
+    if (!isAddressReserved(addr)) {
+      reservedTokensDestinations.push(addr);
+      reservedTokensDestinationsLen++;
+    }
+
+    reservedTokensList[addr] = ReservedTokensData({
+      inTokens: inTokens, 
+      inPercentageUnit: inPercentageUnit, 
+      inPercentageDecimals: inPercentageDecimals,
+      isReserved: true,
+      isDistributed: false
+    });
   }
 
-  function getReservedTokensListValInTokens(address addr) constant returns (uint inTokens) {
+  function finalizeReservedAddress(address addr) onlyMintAgent canMint {
+    ReservedTokensData storage reservedTokensData = reservedTokensList[addr];
+    reservedTokensData.isDistributed = true;
+  }
+
+  function isAddressReserved(address addr) constant returns (bool isReserved) {
+    return reservedTokensList[addr].isReserved;
+  }
+
+  function areTokensDistributedForAddress(address addr) constant returns (bool isDistributed) {
+    return reservedTokensList[addr].isDistributed;
+  }
+
+  function getReservedTokens(address addr) constant returns (uint inTokens) {
     return reservedTokensList[addr].inTokens;
   }
 
-  function getReservedTokensListValInPercentageUnit(address addr) constant returns (uint inPercentageUnit) {
+  function getReservedPercentageUnit(address addr) constant returns (uint inPercentageUnit) {
     return reservedTokensList[addr].inPercentageUnit;
   }
 
-  function getReservedTokensListValInPercentageDecimals(address addr) constant returns (uint inPercentageDecimals) {
+  function getReservedPercentageDecimals(address addr) constant returns (uint inPercentageDecimals) {
     return reservedTokensList[addr].inPercentageDecimals;
   }
 
-  function setReservedTokensListMultiple(address[] addrs, uint[] inTokens, uint[] inPercentageUnit, uint[] inPercentageDecimals) onlyOwner {
+  function setReservedTokensListMultiple(address[] addrs, uint[] inTokens, uint[] inPercentageUnit, uint[] inPercentageDecimals) canMint onlyOwner {
+    assert(!reservedTokensDestinationsAreSet);
     for (uint iterator = 0; iterator < addrs.length; iterator++) {
-      setReservedTokensList(addrs[iterator], inTokens[iterator], inPercentageUnit[iterator], inPercentageDecimals[iterator]);
+      if (addrs[iterator] != address(0)) {
+        setReservedTokensList(addrs[iterator], inTokens[iterator], inPercentageUnit[iterator], inPercentageDecimals[iterator]);
+      }
     }
+    reservedTokensDestinationsAreSet = true;
   }
 
   /**
@@ -1489,6 +1543,8 @@ contract CrowdsaleTokenExt is ReleasableToken, MintableTokenExt, UpgradeableToke
 
   /** Name and symbol were updated. */
   event UpdatedTokenInformation(string newName, string newSymbol);
+
+  event ClaimedTokens(address indexed _token, address indexed _controller, uint _amount);
 
   string public name;
 
@@ -1574,6 +1630,21 @@ contract CrowdsaleTokenExt is ReleasableToken, MintableTokenExt, UpgradeableToke
     UpdatedTokenInformation(name, symbol);
   }
 
+  /**
+   * Claim tokens that were accidentally sent to this contract.
+   *
+   * @param _token The address of the token contract that you want to recover.
+   */
+  function claimTokens(address _token) public onlyOwner {
+    require(_token != address(0));
+
+    ERC20 token = ERC20(_token);
+    uint balance = token.balanceOf(this);
+    token.transfer(owner, balance);
+
+    ClaimedTokens(_token, owner, balance);
+  }
+
 }
 
 
@@ -1587,6 +1658,9 @@ contract ReservedTokensFinalizeAgent is FinalizeAgent {
   CrowdsaleTokenExt public token;
   CrowdsaleExt public crowdsale;
 
+  bool public reservedTokensAreDistributed = false;
+  uint public distributedReservedTokensDestinationsLen = 0;
+
   function ReservedTokensFinalizeAgent(CrowdsaleTokenExt _token, CrowdsaleExt _crowdsale) {
     token = _token;
     crowdsale = _crowdsale;
@@ -1597,34 +1671,62 @@ contract ReservedTokensFinalizeAgent is FinalizeAgent {
     return (token.releaseAgent() == address(this));
   }
 
+  //distributes reserved tokens. Should be called before finalization
+  function distributeReservedTokens(uint reservedTokensDistributionBatch) public {
+    if(msg.sender != address(crowdsale)) {
+      throw;
+    }
+
+    assert(reservedTokensDistributionBatch > 0);
+    assert(!reservedTokensAreDistributed);
+    assert(distributedReservedTokensDestinationsLen < token.reservedTokensDestinationsLen());
+
+    // How many % of tokens the founders and others get
+    uint tokensSold = crowdsale.tokensSold();
+
+    uint startLooping = distributedReservedTokensDestinationsLen;
+    uint batch = token.reservedTokensDestinationsLen().minus(distributedReservedTokensDestinationsLen);
+    if (batch >= reservedTokensDistributionBatch) {
+      batch = reservedTokensDistributionBatch;
+    }
+    uint endLooping = startLooping + batch;
+
+    // move reserved tokens
+    for (uint j = startLooping; j < endLooping; j++) {
+      address reservedAddr = token.reservedTokensDestinations(j);
+      if (!token.areTokensDistributedForAddress(reservedAddr)) {
+        uint allocatedBonusInPercentage;
+        uint allocatedBonusInTokens = token.getReservedTokens(reservedAddr);
+        uint percentsOfTokensUnit = token.getReservedPercentageUnit(reservedAddr);
+        uint percentsOfTokensDecimals = token.getReservedPercentageDecimals(reservedAddr);
+
+        if (percentsOfTokensUnit > 0) {
+          allocatedBonusInPercentage = tokensSold * percentsOfTokensUnit / 10**percentsOfTokensDecimals / 100;
+          token.mint(reservedAddr, allocatedBonusInPercentage);
+        }
+
+        if (allocatedBonusInTokens > 0) {
+          token.mint(reservedAddr, allocatedBonusInTokens);
+        }
+
+        token.finalizeReservedAddress(reservedAddr);
+        distributedReservedTokensDestinationsLen++;
+      }
+    }
+
+    if (distributedReservedTokensDestinationsLen == token.reservedTokensDestinationsLen()) {
+      reservedTokensAreDistributed = true;
+    }
+  }
+
   /** Called once by crowdsale finalize() if the sale was success. */
   function finalizeCrowdsale() public {
     if(msg.sender != address(crowdsale)) {
       throw;
     }
 
-    // How many % of tokens the founders and others get
-    uint tokensSold = crowdsale.tokensSold();
-
-    // move reserved tokens in percentage
-    for (var j = 0; j < token.reservedTokensDestinationsLen(); j++) {
-      uint allocatedBonusInPercentage;
-      uint percentsOfTokensUnit = token.getReservedTokensListValInPercentageUnit(token.reservedTokensDestinations(j));
-      uint percentsOfTokensDecimals = token.getReservedTokensListValInPercentageDecimals(token.reservedTokensDestinations(j));
-      if (percentsOfTokensUnit > 0) {
-        allocatedBonusInPercentage = tokensSold * percentsOfTokensUnit / 10**percentsOfTokensDecimals / 100;
-        tokensSold = tokensSold.plus(allocatedBonusInPercentage);
-        token.mint(token.reservedTokensDestinations(j), allocatedBonusInPercentage);
-      }
-    }
-
-    // move reserved tokens in tokens
-    for (var i = 0; i < token.reservedTokensDestinationsLen(); i++) {
-      uint allocatedBonusInTokens = token.getReservedTokensListValInTokens(token.reservedTokensDestinations(i));
-      if (allocatedBonusInTokens > 0) {
-        tokensSold = tokensSold.plus(allocatedBonusInTokens);
-        token.mint(token.reservedTokensDestinations(i), allocatedBonusInTokens);
-      }
+    if (token.reservedTokensDestinationsLen() > 0) {
+      assert(reservedTokensAreDistributed);
     }
 
     token.releaseTokenTransfer();

@@ -1,4 +1,3 @@
-// Created using ICO Wizard https://github.com/oraclesorg/ico-wizard by Oracles Network 
 pragma solidity ^0.4.11;
 
 
@@ -152,6 +151,8 @@ contract FinalizeAgent {
    */
   function isSane() public constant returns (bool);
 
+  function distributeReservedTokens(uint reservedTokensDistributionBatch);
+
   /** Called once by crowdsale finalize() if the sale was success. */
   function finalizeCrowdsale();
 
@@ -223,6 +224,9 @@ contract CrowdsaleExt is Haltable {
   /* Post-success callback */
   FinalizeAgent public finalizeAgent;
 
+  /* name of the crowdsale tier */
+  string public name;
+
   /* tokens will be transfered from this address */
   address public multisigWallet;
 
@@ -293,6 +297,9 @@ contract CrowdsaleExt is Haltable {
   /** Addresses that are allowed to invest even before ICO offical opens. For testing, for ICO partners, etc. */
   mapping (address => WhiteListData) public earlyParticipantWhitelist;
 
+  /** List of whitelisted addresses */
+  address[] public whitelistedParticipants;
+
   /** This is for manul testing for the interaction from owner wallet. You can set it to any value and inspect this in blockchain explorer to see that crowdsale interaction works. */
   uint public ownerTestValue;
 
@@ -326,9 +333,11 @@ contract CrowdsaleExt is Haltable {
   // Crowdsale end time has been changed
   event EndsAtChanged(uint newEndsAt);
 
-  function CrowdsaleExt(address _token, PricingStrategy _pricingStrategy, address _multisigWallet, uint _start, uint _end, uint _minimumFundingGoal, bool _isUpdatable, bool _isWhiteListed) {
+  function CrowdsaleExt(string _name, address _token, PricingStrategy _pricingStrategy, address _multisigWallet, uint _start, uint _end, uint _minimumFundingGoal, bool _isUpdatable, bool _isWhiteListed) {
 
     owner = msg.sender;
+
+    name = _name;
 
     token = FractionalERC20Ext(_token);
 
@@ -460,14 +469,14 @@ contract CrowdsaleExt is Haltable {
     if (isWhiteListed) {
       uint num = 0;
       for (var i = 0; i < joinedCrowdsalesLen; i++) {
-        if (this == joinedCrowdsales[i]) 
+        if (this == joinedCrowdsales[i])
           num = i;
       }
 
       if (num + 1 < joinedCrowdsalesLen) {
         for (var j = num + 1; j < joinedCrowdsalesLen; j++) {
           CrowdsaleExt crowdsale = CrowdsaleExt(joinedCrowdsales[j]);
-          crowdsale.updateEarlyParicipantWhitelist(msg.sender, this, tokenAmount);
+          crowdsale.updateEarlyParticipantWhitelist(msg.sender, this, tokenAmount);
         }
       }
     }
@@ -561,6 +570,18 @@ contract CrowdsaleExt is Haltable {
     invest(msg.sender);
   }
 
+  function distributeReservedTokens(uint reservedTokensDistributionBatch) public inState(State.Success) onlyOwner stopInEmergency {
+    // Already finalized
+    if(finalized) {
+      throw;
+    }
+
+    // Finalizing is optional. We only call it if we are given a finalizing agent.
+    if(address(finalizeAgent) != 0) {
+      finalizeAgent.distributeReservedTokens(reservedTokensDistributionBatch);
+    }
+  }
+
   /**
    * Finalize a succcesful crowdsale.
    *
@@ -618,23 +639,28 @@ contract CrowdsaleExt is Haltable {
 
   /**
    * Allow addresses to do early participation.
-   *
-   * TODO: Fix spelling error in the name
    */
-  function setEarlyParicipantWhitelist(address addr, bool status, uint minCap, uint maxCap) onlyOwner {
+  function setEarlyParticipantWhitelist(address addr, bool status, uint minCap, uint maxCap) onlyOwner {
     if (!isWhiteListed) throw;
-    earlyParticipantWhitelist[addr] = WhiteListData({status:status, minCap:minCap, maxCap:maxCap});
-    Whitelisted(addr, status);
-  }
+    assert(addr != address(0));
+    assert(maxCap > 0);
+    assert(minCap <= maxCap);
 
-  function setEarlyParicipantsWhitelist(address[] addrs, bool[] statuses, uint[] minCaps, uint[] maxCaps) onlyOwner {
-    if (!isWhiteListed) throw;
-    for (uint iterator = 0; iterator < addrs.length; iterator++) {
-      setEarlyParicipantWhitelist(addrs[iterator], statuses[iterator], minCaps[iterator], maxCaps[iterator]);
+    if (earlyParticipantWhitelist[addr].maxCap == 0) {
+      earlyParticipantWhitelist[addr] = WhiteListData({status:status, minCap:minCap, maxCap:maxCap});
+      whitelistedParticipants.push(addr);
+      Whitelisted(addr, status);
     }
   }
 
-  function updateEarlyParicipantWhitelist(address addr, address contractAddr, uint tokensBought) {
+  function setEarlyParticipantsWhitelist(address[] addrs, bool[] statuses, uint[] minCaps, uint[] maxCaps) onlyOwner {
+    if (!isWhiteListed) throw;
+    for (uint iterator = 0; iterator < addrs.length; iterator++) {
+      setEarlyParticipantWhitelist(addrs[iterator], statuses[iterator], minCaps[iterator], maxCaps[iterator]);
+    }
+  }
+
+  function updateEarlyParticipantWhitelist(address addr, address contractAddr, uint tokensBought) {
     if (tokensBought < earlyParticipantWhitelist[addr].minCap) throw;
     if (!isWhiteListed) throw;
     if (addr != msg.sender && contractAddr != msg.sender) throw;
@@ -715,7 +741,7 @@ contract CrowdsaleExt is Haltable {
 
     uint num = 0;
     for (var i = 0; i < joinedCrowdsalesLen; i++) {
-      if (this == joinedCrowdsales[i]) 
+      if (this == joinedCrowdsales[i])
         num = i;
     }
 
@@ -877,6 +903,10 @@ contract CrowdsaleExt is Haltable {
    * Create new tokens or transfer issued tokens to the investor depending on the cap model.
    */
   function assignTokens(address receiver, uint tokenAmount) private;
+
+  function whitelistedParticipantsLength() public constant returns (uint) {
+    return whitelistedParticipants.length;
+  }
 }
 
 
